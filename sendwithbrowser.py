@@ -156,11 +156,13 @@ class BrowserSession:
                             break
 
                 browser_args = {
-                    "headless": False,
+                    "headless": True,  # Для сервера без GUI
                     "args": [
                         "--disable-blink-features=AutomationControlled",
                         "--disable-dev-shm-usage",
                         "--no-sandbox",
+                        "--disable-gpu",
+                        "--disable-setuid-sandbox",
                     ],
                 }
                 if chromium_exe:
