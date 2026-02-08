@@ -28,6 +28,16 @@ MIN_REVIEWS = 0
 # Формат: "host:port" или None
 PROXY_HOST_PORT = None  # Например: "123.45.67.89:8080"
 
+# Использовать ротацию прокси из proxies.txt
+USE_PROXY_ROTATION = True  # True - ротация из файла, False - один прокси
+
+# Файл со списком прокси для ротации
+PROXY_LIST_FILE = "proxies.txt"
+
+# Использовать файл с несколькими прокси для ротации
+USE_PROXY_ROTATION = True  # True = использовать proxies.txt, False = один прокси
+PROXY_FILE = "proxies.txt"
+
 # ===== ФАЙЛЫ =====
 COOKIES_FILE = "cookies.txt"
 BLACKLIST_FILE = "blacklist.txt"

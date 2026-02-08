@@ -15,6 +15,8 @@ from main import (
     load_blacklist,
 )
 from sendwithbrowser import BrowserSession
+from proxy_rotator import ProxyRotator
+from proxy_manager import ProxyManager
 
 # Настройка логирования
 logging.basicConfig(
@@ -26,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Глобальные переменные для управления парсером
 parser_task = None
 is_running = False
+proxy_manager = ProxyManager()  # Менеджер прокси
 current_settings = {
     "url": config.DEFAULT_URL,
     "pages": config.DEFAULT_PAGES,
@@ -59,6 +62,22 @@ async def parse_and_send():
     global is_running
     try:
         logger.info("🚀 Начинаю парсинг...")
+        
+        # Загрузка прокси
+        if config.USE_PROXY_ROTATION:
+            proxy_manager.load_from_file(config.PROXY_FILE)
+            if proxy_manager.proxy_list:
+                await bot.send_message(
+                    config.ADMIN_ID,
+                    f"🔄 Загружено {len(proxy_manager.proxy_list)} прокси\n"
+                    f"Тестирую их работоспособность..."
+                )
+                working = await proxy_manager.test_all_proxies()
+                await bot.send_message(
+                    config.ADMIN_ID,
+                    f"✅ Рабочих прокси: {working}/{len(proxy_manager.proxy_list)}"
+                )
+        
         await bot.send_message(
             config.ADMIN_ID, "🚀 Парсинг запущен!\n\nСобираю данные..."
         )
@@ -69,13 +88,16 @@ async def parse_and_send():
 
         # Настройка прокси
         proxy = None
-        if config.PROXY_HOST_PORT:
+        if config.PROXY_HOST_PORT and not config.USE_PROXY_ROTATION:
             proxy = {
                 "http": f"http://{config.PROXY_HOST_PORT}",
                 "https": f"http://{config.PROXY_HOST_PORT}",
             }
+        elif proxy_manager.proxy_list:
+            proxy = proxy_manager.get_next_proxy()
 
-        # Парсинг главной страницы
+        # Парсинг главной страницы (передаем proxy_manager)
+        # Нужно обновить parse_main_page чтобы принимала proxy_manager
         all_links = await parse_main_page(
             current_settings["url"], current_settings["pages"], proxy
         )
@@ -435,7 +457,51 @@ async def cmd_help(message: types.Message):
         "⚠️ Важно:\n"
         "- Убедитесь, что cookies.txt заполнен\n"
         "- Файл с фото должен существовать\n"
-        "- Парсинг может занять много времени"
+        "- Парсинг может занять много времени\n\n"
+        "🔄 Прокси:\n"
+        "- /proxies - Статистика прокси\n"
+        "- /testproxies - Проверить все прокси"
+    )
+
+
+@dp.message(Command("proxies"))
+async def cmd_proxies(message: types.Message):
+    """Статистика прокси"""
+    if not check_admin(message.from_user.id):
+        await message.answer("⛔ Доступ запрещен")
+        return
+
+    if not proxy_manager.proxy_list:
+        await message.answer(
+            "⚠️ Прокси не настроены\n\n"
+            "Добавьте прокси в файл proxies.txt\n"
+            "Формат: host:port (по одному на строку)"
+        )
+        return
+
+    stats = proxy_manager.get_stats()
+    await message.answer(stats)
+
+
+@dp.message(Command("testproxies"))
+async def cmd_test_proxies(message: types.Message):
+    """Тестирование всех прокси"""
+    if not check_admin(message.from_user.id):
+        await message.answer("⛔ Доступ запрещен")
+        return
+
+    if not proxy_manager.proxy_list:
+        await message.answer("⚠️ Прокси не настроены")
+        return
+
+    await message.answer(f"🔍 Тестирую {len(proxy_manager.proxy_list)} прокси...")
+    
+    working_count = await proxy_manager.test_all_proxies()
+    
+    await message.answer(
+        f"✅ Тестирование завершено!\n\n"
+        f"Рабочих: {working_count}/{len(proxy_manager.proxy_list)}\n\n"
+        f"Используйте /proxies для подробной статистики"
     )
 
 

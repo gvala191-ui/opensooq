@@ -34,7 +34,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse, unquote
 
 
-async def fetch_link(link, proxy=None, cookies=None, headers=None, retries=4) -> str:
+async def fetch_link(link, proxy=None, cookies=None, headers=None, retries=4, proxy_manager=None) -> str:
     # ***<module>.fetch_link: Failure: Compilation Error
     request_kwargs = {
         "verify": False, 
@@ -42,27 +42,48 @@ async def fetch_link(link, proxy=None, cookies=None, headers=None, retries=4) ->
         "allow_redirects": True,
         "max_redirects": 2
     }
-    if proxy:
-        request_kwargs["proxies"] = proxy
+    
+    current_proxy = proxy
+    
     if cookies:
         request_kwargs["cookies"] = cookies
     if headers:
         request_kwargs["headers"] = headers
+    
     for attempt in range(retries):
+        # Если есть менеджер прокси, используем его
+        if proxy_manager and hasattr(proxy_manager, 'proxy_list') and proxy_manager.proxy_list:
+            current_proxy = proxy_manager.get_next_proxy()
+            print(f"🔄 Используем прокси: {current_proxy.get('http', 'None')}")
+        
+        if current_proxy:
+            request_kwargs["proxies"] = current_proxy
+            
         async with curl_cffi.AsyncSession() as s:
             try:
                 response = await s.get(link, **request_kwargs)
                 if response.status_code == 200:
                     return response.text
+                    
                 if response.status_code == 403:
                     print(
                         f"⚠️ 403 Forbidden на {link[:50]}... (попытка {attempt + 1}/{retries})"
                     )
+                    # Помечаем прокси и меняем его
+                    if proxy_manager and current_proxy:
+                        proxy_manager.mark_403_error(current_proxy)
+                        print("🔄 Меняю прокси из-за 403...")
+                        current_proxy = proxy_manager.get_random_proxy()
+                    
                     await asyncio.sleep(3)
                     continue
+                    
                 if response.status_code == 429:
-                    print("⚠️ Rate limit 429, ждём 5 сек...")
+                    print("⚠️ Rate limit 429, меняю прокси и жду 5 сек...")
+                    if proxy_manager and current_proxy:
+                        current_proxy = proxy_manager.get_random_proxy()
                     await asyncio.sleep(5)
+                    continue
                 else:
                     print(f"⚠️ HTTP {response.status_code} на {link[:50]}...")
                     return
@@ -70,6 +91,10 @@ async def fetch_link(link, proxy=None, cookies=None, headers=None, retries=4) ->
                 print(f"❌ Не удалось получить {link[:50]}... после {retries} попыток")
             except (ConnectionResetError, ConnectionAbortedError, ConnectionError) as e:
                 print(f"⚠️ Разрыв соединения (попытка {attempt + 1}/{retries})")
+                if proxy_manager and current_proxy:
+                    print("🔄 Меняю прокси из-за разрыва соединения...")
+                    current_proxy = proxy_manager.get_random_proxy()
+                    
                 if attempt < retries - 1:
                     await asyncio.sleep(3)
                     continue
@@ -79,6 +104,8 @@ async def fetch_link(link, proxy=None, cookies=None, headers=None, retries=4) ->
                 error_msg = str(e).lower()
                 if "connection" in error_msg or "reset" in error_msg or "10054" in error_msg:
                     print(f"⚠️ Сетевая ошибка (попытка {attempt + 1}/{retries})")
+                    if proxy_manager and current_proxy:
+                        current_proxy = proxy_manager.get_random_proxy()
                 else:
                     print(f"❌ Ошибка запроса (попытка {attempt + 1}/{retries}): {e}")
                 if attempt < retries - 1:
