@@ -226,41 +226,10 @@ def parse_user_info(page_html: str) -> dict:
 
 
 def func_proxy() -> dict:
-    # ***<module>.func_proxy: Failure: Compilation Error
-    try:
-        proxy_host_port = input(
-            "Введите прокси в формате host:port (или Enter для пропуска): "
-        ).strip()
-        if not proxy_host_port:
-            print("⚠️ Прокси не используется.")
-            return
-        else:
-            proxy = {
-                "http": f"http://{proxy_host_port}",
-                "https": f"http://{proxy_host_port}",
-            }
-
-        response = curl_cffi.get(
-            "https://httpbin.org/ip", proxies=proxy, verify=False, timeout=10
-        )
-        if response.status_code == 200:
-            ip = response.json().get("origin", "неизвестно")
-            print(f"✓ Прокси работает! IP: {ip}")
-            return proxy
-        else:
-            print(f"⚠️ Прокси ответил кодом {response.status_code}")
-            retry = input("Попробовать другой? (y/n): ").strip().lower()
-            if retry == "y":
-                return func_proxy()
-            else:
-                return proxy
-    except Exception as e:
-        print(f"❌ Ошибка прокси: {e}")
-        retry = input("Попробовать другой? (y/n): ").strip().lower()
-        if retry == "y":
-            return func_proxy()
-
-    return func_proxy()
+    """Функция для интерактивной настройки прокси (только для локального запуска)"""
+    # На сервере эта функция не используется - прокси настраивается через config.py
+    print("⚠️ func_proxy() не используется в боте. Настрой прокси в config.py")
+    return None
 
 
 def load_cookies() -> dict:
@@ -272,13 +241,11 @@ def load_cookies() -> dict:
             cookies_dict[cookie["name"]] = cookie["value"]
         return cookies_dict
     except FileNotFoundError:
-        print("Файл cookies.txt не найден.")
-        asd = input("Нажмите Enter для выхода...")
-        os._exit(1)
+        print("❌ Файл cookies.txt не найден.")
+        return {}
     except json.JSONDecodeError:
-        print("Ошибка при чтении cookies.txt. Проверьте формат JSON.")
-        asd = input("Нажмите Enter для выхода...")
-        os._exit(1)
+        print("❌ Ошибка при чтении cookies.txt. Проверьте формат JSON.")
+        return {}
 
 
 def load_blacklist() -> set:
