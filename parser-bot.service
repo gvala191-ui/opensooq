@@ -1,0 +1,18 @@
+[Unit]
+Description=Parser Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/opensoq
+Environment="BOT_TOKEN=8392139446:AAFKa4foNUq7vU1atOJtRgLERtW-Z0_o3Vc"
+Environment="ADMIN_ID=8373464271"
+ExecStart=/usr/bin/python3 bot.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

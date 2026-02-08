@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: parser-bot
+    restart: unless-stopped
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_ID=${ADMIN_ID}
+    volumes:
+      - ./cookies.txt:/app/cookies.txt
+      - ./blacklist.txt:/app/blacklist.txt
+      - ./results.txt:/app/results.txt
+      - ./pasta1.txt:/app/pasta1.txt
+      - ./pasta2.txt:/app/pasta2.txt
+      - ./pasta3.txt:/app/pasta3.txt
+      - ./pasta4.txt:/app/pasta4.txt
+      - ./pasta5.txt:/app/pasta5.txt
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
